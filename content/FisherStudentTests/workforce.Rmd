@@ -1,0 +1,107 @@
+---
+title: "Fisher and Student Tests: Workforce dataset"
+output:
+    html_document:
+      code_download: true    
+      theme: cosmo
+      toc: true
+      toc_float: true
+      highlight: tango
+      number_sections: true
+---
+
+
+The Workforce dataset shows the labour force participation rates for males and females over time for several countries in Europe and North America. The data for this example were taken from the [worldbank website](http://wdi.worldbank.org/table/2.2) and records the labour force participation rates for males and females over time by country.
+
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+install.packages('tidyverse')
+install.packages("gplots")
+install.packages("ggpubr")
+```
+
+```{r message = FALSE, warning = FALSE, echo = TRUE} 
+library("gplots")
+library("tidyverse")
+library("ggpubr")
+df <- read.csv('../../data/workforce.csv');
+df <- na.omit(df);
+colnames(df) <- c('Country', 'M2000' , 'M2013', 'F2000', 'F2013', 'Continent');
+```
+
+
+# Has there  been  a  change  in  rates  of females  participating  in  the  labour  force (RFPLF)  across  both  continents  from  2000  to 2013 ?
+
+
+To answer this question, we plan to conduct a Student test. To trust the result obtained with this approach, we need to first check that the assumptions of the T-test hold for our data.
+We first need to study the distribution of the samples.
+
+## Checking the normality assumption
+
+### A qualitative approach
+
+```{r}
+ggdensity(df$F2000, 
+          main = "Density plot of rates of females participating in the labour force in 2000",
+          xlab = "RFPLF");
+ggdensity(df$F2013, 
+          main = "Density plot of rates of femalesparticipating in the labour force in 2013",
+          xlab = "RFPLF")
+```
+
+This first visual representation does not allow us to directly conclude that the assumption of gaussian dstributions is not correct. To get more information, we continue our analysis using Q-Q plots.
+
+```{r}
+ggqqplot(df$F2000, title='Q-Q plot for the rates of females participating in the labour force in 2000');
+ggqqplot(df$F2013, title='Q-Q plot for the rates of females participating in the labour force in 2013')
+```
+
+The Q-Q plots seems to confirm our first intuition: the gaussian assumption looks reasonable.
+
+### A quantitative approach
+
+To confirm the visual results of the previous section, we conduct a statistical test to draw our final conclusion regarding the distribution of our data.
+
+
+```{r}
+shapiro.test(df$F2000);
+shapiro.test(df$F2013)
+```
+
+Both test give a p-value greater than 0.05, implying that the distribution of the data are not significantly different from normal distribution. In other words, we can assume the normality.
+
+## Checking the assumption that both sequences of the same variance
+
+To apply a T-student, we need to further check that both sequences of variables have comparable variances. To make it rigorous, we conduct a Fisher test.
+
+```{r}
+tfisher1 <- var.test(df$F2000, df$F2013, alternative = "two.sided", conf.level = 0.95);
+tfisher1;   
+```
+
+We cannot reject the null hypothesis, which means that, assuming that the assumptions of the Fisher test hold, the difference between the variances of both sequences is not statistically significant. 
+Hence, it is reasonable to use a Student Test to test a potential change in rates of females participating in the labour force across both continents from 2000 and 2013.
+
+## Conclusion using the Student Test
+
+```{r}            
+ttest1 <- t.test(df$F2000, df$F2013, alternative = "two.sided", paired = TRUE, conf.level = 0.95)
+ttest1
+```
+
+Since p<0.001,  we reject the null hypothesis and we conclude that there is evidence of an increase in the rates of females participating in the labour force over time across both Europe and North America.
+
+
+# Is there a difference in female labour force participation rates in 2013 between Europe and North America?
+
+To answer this question, we use again a T-test.
+
+```{r}
+ttest2 <- t.test(df$F2013[df$Continent == 'Europe'], df$F2013[df$Continent != 'Europe'], alternative = "two.sided", conf.level = 0.95)
+ttest2
+```
+
+The p-value is approximately 0.08. Hence, for a test with level 0.05, we would be lead to accept the null hypothesis.
+However, our dataset contains only the female labour force participation rates in 2013 for ten countries, which seems rather small to conclude with certainty. To draw our final conclusion, we should find more data.
+
+
+
