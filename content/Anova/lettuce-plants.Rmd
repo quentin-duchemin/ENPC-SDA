@@ -10,6 +10,9 @@ output:
       number_sections: true
 ---
 
+To go back to the Home page, click [here](https://quentin-duchemin.github.io/ENPC-SDA/).
+
+
 
 <table width="100%" border ="1"  bordercolor="#ff0000" cellspacing="1" cellpadding="1"><tr><td>
 This R notebook was produced by Lieven Clement and Jeroen Gilis, who were in charge of the course Practical Statistics for the Life Sciences from the Instituto Gulbenkian de Ciência (Portugal) in 2020. 
@@ -311,8 +314,6 @@ We may conclude that supplementing soil with compost or with
 both compost and biochar will have a positive effect on the 
 freshweigth of lettuce plants.
 
-**Question: can we extrapolate these results to another vegetable**
-**for instance, spinache?**
 
 
 

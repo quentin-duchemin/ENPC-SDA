@@ -10,8 +10,10 @@ output:
       number_sections: true
 ---
 
+To go back to the Home page, click [here](https://quentin-duchemin.github.io/ENPC-SDA/).
 
-The Workforce dataset shows the labour force participation rates for males and females over time for several countries in Europe and North America. The data for this example were taken from the [worldbank website](http://wdi.worldbank.org/table/2.2) and records the labour force participation rates for males and females over time by country.
+
+The Workforce dataset shows the labour force participation rates for males and females over time for several countries in Europe and North America. The data for this example was taken from the [worldbank website](http://wdi.worldbank.org/table/2.2) and records the labour force participation rates for males and females over time by country.
 
 ```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
 install.packages('tidyverse')
