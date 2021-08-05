@@ -1,5 +1,5 @@
 ---
-title: "R Notebook"
+title: "Logistic Regression with the SARS Cov 2 dataset"
 output:
     html_document:
       code_download: true    
@@ -10,19 +10,21 @@ output:
       number_sections: true
 ---
 
+To go back to the Home page, click [here](https://quentin-duchemin.github.io/ENPC-SDA/).
 
-Dataset can be found [here](https://www.kaggle.com/einsteindata4u/covid19).
+<br></br>
 
-This notebook was inspired by a [post](https://towardsdatascience.com/predicting-the-probability-of-sars-cov-2-result-using-multiple-logistic-regressing-in-r-and-python-874cf9185d62) from the website [TowardsDataScience](https://towardsdatascience.com).
+This notebook was inspired by a [post](https://towardsdatascience.com/predicting-the-probability-of-sars-cov-2-result-using-multiple-logistic-regressing-in-r-and-python-874cf9185d62) from the website [TowardsDataScience](https://towardsdatascience.com). The dataset can be found [here](https://www.kaggle.com/einsteindata4u/covid19). 
 
 
 Our goal is twofold:
-- As a first step, we want to identify diseases that have symptoms similar to the Covid 19. In that way, we can recommend to medical centers to separate people infected by these diseases in order to give them a specific attention. This would also allow to avoid to build dataset with false instance (i.e. with false discoveries).
-- Finally, we want to build a predictive model able to classify a patient as infected by the covid 19 or not based on his/her blood's data.
+- We want to build a predictive model able to classify a patient as infected by the covid 19 or not based on his/her blood's data.
+- We also want to identify diseases that have symptoms similar to the Covid 19. In that way, we can recommend to medical centers to treat separately people infected by these diseases. This would also allow to avoid to build dataset with false instances (i.e. with false discoveries).
+
 
 # Data import and pre-processing
 
-```{r}
+```{r include=FALSE}
 library('DescTools')
 library("tidyverse")
 library('corrplot')
@@ -30,6 +32,10 @@ library('boot') # to use cv.glm for Cross-Validation
 library('ROCR') # to use prediction and performance functions for ROC curves
 library('ggplot2') # to use the function ggplot
 library('gridExtra') # to use the command griad.arange to show multiple plots in the same window
+library('lmtest') # to use the function lrtest for likelihood ratio tests 
+```
+
+```{r}
 data <- read.csv('../../data/covid.csv');
 data <- data.frame(data);
 data$SARS.Cov.2.exam.result = 1*(data$SARS.Cov.2.exam.result == "positive")
@@ -46,52 +52,6 @@ dfPrediction = na.omit(dfPrediction);
 ```
 
 
-# Disease dataset
-
-## Data exploration
-
-I have to skip Parainfluenza 2 as there are no cases for it. Now let’s plot the CramerV’s correlation plot to check the correlation between categorical variables.
-
-```{r}
-# CramerV Correlation to check for any correlation between catagorical variables
-# Except Patient's age, all other variables are catagorical(binary)
-dfDiseases.corr  = PairApply(dfDiseases[,names(dfDiseases) != "Patient.age.quantile"], CramerV, symmetric = TRUE)
-# Displaying correlation with variable SARS_COV2_Result
-dfDiseases.corr[,2]
-# Correlation plot
-corrplot(dfDiseases.corr , method = "square", type = "lower", number.cex=0.5)
-```
-
-Rhinovirus_OR_Enterovirus seems to be the predictor correlated with our target with the correlation value of 0.1517. We now split our dataset in 80% training and 20% test.
-
-```{r}
-# Dividing Train/Test data with 80% training and 20% test
-sample_size <- floor(0.8 * nrow(dfDiseases))
-train <- sample(nrow(dfDiseases), size = sample_size)
-dfDiseases.train <- as.data.frame(dfDiseases[train,])
-dfDiseases.test <- as.data.frame(dfDiseases[-train,])
-```
-
-
-```{r}
-# Logistic regression considering top predictors
-dfDiseases.function = paste("SARS.Cov.2.exam.result", "~", "Patient.age.quantile + Rhinovirus.Enterovirus")
-dfDiseases.glm = glm(as.formula(dfDiseases.function), data = dfDiseases.train , family = binomial)
-summary(dfDiseases.glm)
-```
-
-## Data Analysis
-
-We perform a logistic regression to learn a model able to predict our target.
-
-```{r}
-# Logistic regression considering top predictors
-disease.function = paste("SARS_COV2_Result", "~", "Patient_Age_Quantile + Rhinovirus_OR_Enterovirus")
-disease.glm = glm(as.formula(disease.function), data = disease.train , family = binomial)
-summary(disease.glm)
-```
-
-
 # Prediction of Infection by the SARS Cov 2
 ## Data Exploration
 
@@ -104,10 +64,71 @@ attach(dfPrediction)
 dfPrediction.corr = cor(dfPrediction)
 dfPrediction.corr[,2]
 # Correlation plot
-corrplot(dfPrediction.corr, method = "square", type = "lower", tl.cex = 0.1);
+corrplot(dfPrediction.corr, method = "square", type = "lower", tl.cex = 0.5);
 ```
 
-Here we see some highly correlated variables. However, we only consider the predictors which have a high correlation to the target variable. So for the analysis, we will use Patient_Age_Quantile , Leukocytes , Eosinophils , Red_blood_cell_distribution_width_RDW , Platelets , and Proteina_C_reativa_mg_dL predictors.
+We can take a first glance at the dataset and immediately identify some variables that are highly correlated with the target value (i.e. the variable SARS.Cov.2.exam.result).
+
+
+### Usefulness of predictors
+
+
+A first visual approach to identify the most relevant variables to predict infections by the SARS Cov 2 consists in fitting a logistic model with only one variable and to plot the probability of being infected by the Covid with respect to the value of this predictor. Let us illustrate this method for some features.
+
+
+```{r}
+# Plotting Separate probability graphs
+plotting.function <- function(var,variableORrank){
+  dfPrediction.sep.function = paste("SARS.Cov.2.exam.result", "~", as.character(var))
+  dfPrediction.sep.glm = glm(as.formula(dfPrediction.sep.function), data = dfPrediction , family = binomial)
+  cv.glm(dfPrediction,dfPrediction.sep.glm,K=10)$delta[1]
+  
+  dfPrediction.predicted.data <- data.frame(
+    probability.of.SARS=dfPrediction.sep.glm$fitted.values,
+    variable=dfPrediction[,as.character(var)])
+  
+  dfPrediction.predicted.data <- dfPrediction.predicted.data[
+    order(dfPrediction.predicted.data$variable, decreasing=FALSE),]
+  
+  dfPrediction.predicted.data$rank <- 1:nrow(dfPrediction.predicted.data)
+  
+  ggplot(data=dfPrediction.predicted.data, aes(x= variable, y=probability.of.SARS)) +
+    geom_point(aes(color=variable), size=3) +
+    xlab(as.character(var)) +
+    ylab("Probability of having SARS CoV-2") +
+    scale_colour_gradient(low = "darkgreen", high = "darkred", na.value = NA) +
+    ggtitle(coef(summary(dfPrediction.sep.glm))[,'Pr(>|z|)'])
+}
+plotfun1 = plotting.function("Platelets")
+plotfun2 = plotting.function("Monocytes")
+plotfun3 = plotting.function("Hemoglobin")
+plotfun4 = plotting.function("Red.blood.cell.distribution.width..RDW.")
+plotfun5 = plotting.function("Red.blood.Cells")
+grid.arrange(plotfun1, plotfun2, plotfun3, plotfun4, plotfun5, ncol=3 , nrow = 2)
+```
+
+Except for platelets, all predictors have a positive correlation on the probability of having SARS CoV-2. If this method is a good way to grasp a first intuition, it remains qualitative and scaling aspects can be confusing. Let us now consider a more rigorous approach to identify relevant predictors by using the Likelihood Ratio Test.
+
+
+
+```{r}
+# Plotting Separate probability graphs
+pvalue_LRTest <- function(var){
+  globalnull <- glm(SARS.Cov.2.exam.result  ~ 1, data=dfPrediction);
+  alternative <- glm(paste("SARS.Cov.2.exam.result", "~", as.character(var)),data=dfPrediction);
+  res_lrtest <- lrtest(globalnull, alternative);
+  res_lrtest$`Pr(>Chisq)`[2];
+}
+names_features <- colnames(dfPrediction);
+names_features <- names_features[names_features != 'SARS.Cov.2.exam.result'];
+pvalues <- sapply(names_features, pvalue_LRTest);
+names(pvalues) <- names_features;
+pvalues[order(pvalues, decreasing=FALSE)];
+```
+
+
+
+Based of the results provided by Likelihood ratio tests, we only consider the predictors leading to a p-value at most equal to 0.05. So for the analysis, we will use Leukocytes, Platelets, Monocytes, Eosinophils, Patient.Age.Quantile, Proteina.C.reativa.mg.dL, Basophils, Hemoglobin and Red.blood.Cells as predictors.
 
 
 ## Prediction with Logistic Regression
@@ -122,7 +143,7 @@ train_ind <- sample(nrow(dfPrediction), size = sample_size)
 dfPrediction.train <- as.data.frame(dfPrediction[train_ind,])
 dfPrediction.test <- as.data.frame(dfPrediction[-train_ind,])
 # Logistic regression considering all the variables on the target variable SARS_COV2_Result
-dfPrediction.function = paste("SARS.Cov.2.exam.result", "~", "Patient.age.quantile + Leukocytes + Eosinophils + Red.blood.cell.distribution.width..RDW. + Platelets + Proteina.C.reativa.mg.dL")
+dfPrediction.function = paste("SARS.Cov.2.exam.result", "~", "Leukocytes + Platelets + Monocytes + Eosinophils + Patient.age.quantile + Proteina.C.reativa.mg.dL + Basophils + Hemoglobin + Red.blood.Cells")
 dfPrediction.glm = glm(as.formula(dfPrediction.function), data = dfPrediction.train , family = binomial)
 summary(dfPrediction.glm)
 # 10 fold cross-validation to verify the model
@@ -177,73 +198,49 @@ plot6 = ggplot(data=dfPrediction.predict.dataframe, aes(x=Proteina.C.reativa.mg.
 grid.arrange(plot1, plot2, plot3, plot4, plot5, plot6, ncol=3 , nrow = 2)
 ```
 
-### Usefulness of predictors
 
+# Disease dataset
 
+## Correlations
 
-A first visual approach to identify the most relevant variables to predict infections by the SARS Cov 2 consists in fitting a logistic model with only one variable and to plot the probability of being infected by the Covid with respect to the value of this predictor. Let us illustrate this method for some features.
+We have to skip Parainfluenza 2 as there are no cases for it.
+
+```{r}
+dfDiseases <- dfDiseases[,colnames(dfDiseases) != 'Parainfluenza.2'];
+```
+
+Now let’s plot the CramerV’s correlation plot to check the correlation between categorical variables.
 
 
 ```{r}
-# Plotting Separate probability graphs
-plotting.function <- function(var,variableORrank){
-  dfPrediction.sep.function = paste("SARS.Cov.2.exam.result", "~", as.character(var))
-  dfPrediction.sep.glm = glm(as.formula(dfPrediction.sep.function), data = dfPrediction.train , family = binomial)
-  print(summary(dfPrediction.sep.glm))
-  cv.glm(dfPrediction.train,dfPrediction.sep.glm,K=10)$delta[1]
-  
-  dfPrediction.predicted.data <- data.frame(
-    probability.of.SARS=dfPrediction.sep.glm$fitted.values,
-    variable=dfPrediction.train[,as.character(var)])
-  
-  dfPrediction.predicted.data <- dfPrediction.predicted.data[
-    order(dfPrediction.predicted.data$variable, decreasing=FALSE),]
-  
-  dfPrediction.predicted.data$rank <- 1:nrow(dfPrediction.predicted.data)
-  
-  ggplot(data=dfPrediction.predicted.data, aes(x= variable, y=probability.of.SARS)) +
-    geom_point(aes(color=variable), size=3) +
-    xlab(as.character(var)) +
-    ylab("Probability of having SARS CoV-2") +
-    scale_colour_gradient(low = "darkgreen", high = "darkred", na.value = NA) +
-    ggtitle(coef(summary(dfPrediction.sep.glm))[,'Pr(>|z|)'])
-}
-plotfun1 = plotting.function("Platelets")
-plotfun2 = plotting.function("Monocytes")
-plotfun3 = plotting.function("Hemoglobin")
-plotfun4 = plotting.function("Red.blood.cell.distribution.width..RDW.")
-plotfun5 = plotting.function("Red.blood.Cells")
-grid.arrange(plotfun1, plotfun2, plotfun3, plotfun4, plotfun5, ncol=3 , nrow = 2)
+# CramerV Correlation to check for any correlation between catagorical variables
+# Except Patient's age, all other variables are catagorical(binary)
+dfDiseases.corr  = PairApply(dfDiseases[,names(dfDiseases) != "Patient.age.quantile"], CramerV, symmetric = TRUE)
+# Displaying correlation with variable SARS_COV2_Result
+dfDiseases.corr[,2]
+# Correlation plot
+corrplot(dfDiseases.corr , method = "square", type = "lower", number.cex=0.5)
 ```
 
+Rhinovirus_OR_Enterovirus seems to be the predictor the most correlated with our target (with the correlation value of 0.1517). In the next section, we conduct a statistical test to identify if this correlation is statically significant.
 
-The previous method to identify relevant predictors is qualitative. Let us now consider a more rigorous approach by using the Likelihood Ratio Test.
+## Likelihood Ratio Test
 
-
+We perform Likelihood Ratio Tests to identify diseases that show a significant correlation with the infection status of patient by the SARS Cov 2.
 
 ```{r}
-# Plotting Separate probability graphs
-plotting.function <- function(var,variableORrank){
-  dfPrediction.sep.function = paste("SARS.Cov.2.exam.result", "~", as.character(var))
-  dfPrediction.sep.glm = glm(as.formula(dfPrediction.sep.function), data = dfPrediction.train , family = binomial)
-  print(summary(dfPrediction.sep.glm))
-  cv.glm(dfPrediction.train,dfPrediction.sep.glm,K=10)$delta[1]
-  
-  dfPrediction.predicted.data <- data.frame(
-    probability.of.SARS=dfPrediction.sep.glm$fitted.values,
-    variable=dfPrediction.train[,as.character(var)])
-  
-  dfPrediction.predicted.data <- dfPrediction.predicted.data[
-    order(dfPrediction.predicted.data$variable, decreasing=FALSE),]
-  
-  dfPrediction.predicted.data$rank <- 1:nrow(dfPrediction.predicted.data)
-  
-  ggplot(data=dfPrediction.predicted.data, aes(x= variable, y=probability.of.SARS)) +
-    geom_point(aes(color=variable), size=3) +
-    xlab(as.character(var)) +
-    ylab("Probability of having SARS CoV-2") +
-    scale_colour_gradient(low = "darkgreen", high = "darkred", na.value = NA) +
-    ggtitle(coef(summary(dfPrediction.sep.glm))[,'Pr(>|z|)'])
+pvalue_LRTest <- function(var){
+  globalnull <- glm(SARS.Cov.2.exam.result  ~ 1, data=dfDiseases);
+  alternative <- glm(paste("SARS.Cov.2.exam.result", "~", as.character(var)),data=dfDiseases);
+  res_lrtest <- lrtest(globalnull, alternative);
+  res_lrtest$`Pr(>Chisq)`[2];
 }
+names_features <- colnames(dfDiseases);
+names_features <- names_features[ !(names_features %in% c('SARS.Cov.2.exam.result','Patient.age.quantile'))];
+pvalues <- sapply(names_features, pvalue_LRTest);
+names(pvalues) <- names_features;
+pvalues[order(pvalues, decreasing=FALSE)];
 ```
+Our intuition of the previous section is confirmed by the Likelihood Ratio Test. The symptoms of Rhinovirus are close to the SARS CoV-2 virus and mostly found in the nose (Rhinovirus). Therefore, the probability of having SARS decreases as Rhinovirus is detected. 
 
+Hence hospitals should distinguish between a person with Rhinovirus and a person with COVID-19. Separating patients with Rhinovirus and Covid-19 could help to relieve covid medical groups.

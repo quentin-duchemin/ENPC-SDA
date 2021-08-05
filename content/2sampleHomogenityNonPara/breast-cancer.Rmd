@@ -12,6 +12,8 @@ output:
 
 To go back to the Home page, click [here](https://quentin-duchemin.github.io/ENPC-SDA/).
 
+<br></br>
+
 The data can be found [here](https://www.kaggle.com/uciml/breast-cancer-wisconsin-data/version/2).
 
 Attribute Information:
