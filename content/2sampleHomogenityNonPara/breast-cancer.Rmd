@@ -14,104 +14,88 @@ To go back to the Home page, click [here](https://quentin-duchemin.github.io/ENP
 
 The data can be found [here](https://www.kaggle.com/uciml/breast-cancer-wisconsin-data/version/2).
 
+Attribute Information:
 
-There are situations where we ought to doubt the results of a t-test. The t-test assumes that situations produce normal data that differ only in the sense that the average outcome in one situation is different from the average outcome of the other situation.
+1) ID number
+2) Diagnosis (M = malignant, B = benign)
+3-32)
 
-That being said, if we apply the t-test to data drawn from a non-normal distribution, we are probably increasing the risk of errors. Per the Central Limit Theorem (CLM), the t-test becomes more robust as the control/treatment groups become sufficiently large.
+Ten real-valued features are computed for each cell nucleus:
 
-However, the t-test can still fail in situations where we have a “large” enough sample.
-Small Datasets With the Same Mean
+a) radius (mean of distances from center to points on the perimeter)
+b) texture (standard deviation of gray-scale values)
+c) perimeter
+d) area
+e) smoothness (local variation in radius lengths)
+f) compactness (perimeter^2 / area - 1.0)
+g) concavity (severity of concave portions of the contour)
+h) concave points (number of concave portions of the contour)
+i) symmetry
+j) fractal dimension ("coastline approximation" - 1)
 
-Consider the two randomly generated samples in the code block below:
+The mean, standard error and "worst" or largest (mean of the three
+largest values) of these features were computed for each image,
+resulting in 30 features. For instance, field 3 is Mean Radius, field
+13 is Radius SE, field 23 is Worst Radius.
 
+All feature values are coded with four significant digits.
 
-import numpy as np
+Missing attribute values: none
 
-group_a = np.random.normal(loc=0, scale=1.0, size=20)
-group_b = np.random.normal(loc=0, scale=3.0, size=20)
-
-print('group a: \n{}'.format(np.sort(group_a)))
-print('group b: \n{}'.format(np.sort(group_b)))
-
-# group a: 
-# [-1.53316081 -0.88208252 -0.7861088  -0.60215059 -0.30182657 -0.29608686
-#  -0.19555863 -0.09964535 -0.08850809 -0.04035907  0.08380634  0.22911635
-#   0.40463557  0.50730774  0.6545284   0.65562049  0.98771895  1.27361746
-#   1.50779389  2.36875206]
-# group b: 
-# [-4.09721995 -3.60717059 -3.44233907 -3.29694803 -2.8746042  -2.10588901
-#  -1.34069501 -1.03591226 -0.84082677 -0.04419466  0.39392875  0.96636527
-#   1.03002924  1.17274944  1.350365    1.53796941  2.06565649  2.4084698
-#   3.00474439  4.15348675]
-
-
-
-Both samples are generated from normal distributions having the same mean, however by visual inspection it is clear that both samples are different. A t-test might not be able to pick up on this difference and confidently say that both samples are identical.
-
-A t-test with scipy.ttest.ttest_ind on these samples gives a p-value larger than 0.05. We therefore cannot reject the null hypothesis of identical average scores.
-
-Different Mean and Same Distribution
-
-Say we generate two small datasets that differ in mean, but a non-normal distribution masks the difference as shown in the code below:
-
-#samples from lognormal
-lognorm_a = np.random.lognormal(mean=3, sigma=10, size=20)
-print('group a: \n{}'.format(np.sort(lognorm_a)))
-
-lognorm_b = np.random.lognormal(mean=8, sigma=10, size=20)
-print('group a: \n{}'.format(np.sort(lognorm_b)))
-
-# group a: 
-# [1.04072566e-08 1.52858367e-04 4.13069409e-04 7.15010624e-03
-#  1.04863520e-02 1.19517093e-02 5.77959311e-02 1.11574831e+00
-#  5.94803087e+01 1.70093707e+02 1.73041838e+02 2.55824547e+02
-#  2.65687967e+02 8.38507641e+02 1.19308583e+03 4.06255263e+03
-#  1.23616922e+04 3.69103776e+04 1.11551940e+07 1.53072045e+08]
-# group a: 
-# [2.46485329e-05 2.33950375e-02 7.72273579e-02 3.66263781e-01
-#  1.27165995e+00 4.88322120e+00 1.42103781e+01 5.05046301e+01
-#  1.32405714e+02 4.66103790e+02 1.07285282e+03 7.46708342e+03
-#  4.40676769e+04 1.05854441e+06 1.22132094e+06 1.48709391e+06
-#  2.56910024e+08 9.21642654e+08 2.06377521e+10 4.11588697e+11]
-
-If we knew in advance that the data was not normally distributed we would not be using the t-test to begin with. With this idea in mind, we introduce a method to check if our observations come from a reference probability distribution.
+Class distribution: 357 benign, 212 malignant
 
 
 
 
+```{r}
+library("tidyverse")
+data <- read.csv('../../data/breast-cancer.csv');
+data <- data.frame(data);
+```
+
+```{r}
+features <- colnames(data)[3:32];
+df_benign <- data[data$diagnosis=="B",features];
+df_malignant <- data[data$diagnosis=="M",features];
+```
 
 
+```{r}
+library(ggpubr)
+library(ggplot2)
+library(purrr)
+
+myplot <- function(feature){
+            qq.out <- qqplot(x=df_benign[[feature]], y=df_malignant[[feature]], plot.it=FALSE);
+            qq.out <- as.data.frame(qq.out);
+  
+            # Set the x and y limits
+            xylim <- range( c(qq.out$x, qq.out$y) );
+            
+            ggplot(qq.out, aes( x= x, y = y)) + 
+                 geom_point() + 
+                 geom_abline( intercept=0, slope=1) +
+                 coord_fixed(ratio = 1, xlim=xylim, ylim = xylim) +
+                 xlab("Benign") + ylab("Malignant") + labs(title=substr(feature,1,nchar(feature)-5))
+}
+plot_list <- map(features[1:4], myplot)
+ggarrange(plotlist = plot_list, heights = c(10,10), nrow = 2,ncol = 2)
+
+plot_list <- map(features[5:10], myplot)
+ggarrange(plotlist = plot_list, heights = c(10,10), nrow = 3,ncol = 2)
+```
 
 
+```{r message=FALSE, warning=FALSE, include=FALSE}
+pvalues <- vector(length=length(features));
+names(pvalues) <- features;
+for (feature in features){
+    ksTest <- ks.test(df_benign[[feature]], df_malignant[[feature]]);
+    print(colnames(ksTest));
+    pvalues[feature] <- ksTest$p.value;
+}
+names(pvalues) <- features;
+pvalues;
+```
 
 
-
-
-Test if Sample Belongs to Distribution
-
-In the first example let the null hypothesis be that our samples come from a normal distribution N(0,1). We want to compare the empirical distribution function of the observed data, with the cumulative distribution function associated with the null hypothesis.
-
-Here is the method to set up this experiment:
-
-    Sort the observations in ascending order
-    Calculate the CDF of observations
-    For each observation xi compute F_exp(xi) = P(Z ≤ xi)
-    Compute the absolute differences
-    Record the maximum difference
-    Calculate the critical value
-    Reject or accept null hypothesis
-
-The implementation is fairly straightforward:
-
-The plot below shows a visual representation of what we are doing. The observed values F_obs are represented by the blue curve whereas the theoretical values F_exp are represented by the orange curve. The vertical green lines are the differences between observed and theoretical
-
-
-To compare the two we implement the following steps:
-
-    Order each sample
-    Concatenate in one sorted array
-    Compute the observed cumulative distribution functions of the two samples
-    Compute their maximum absolute difference D_n
-    Compare against D_crit
-
-Before implementing the code we present what we visually aim to achieve in the plot below. Looking at the CDF we can intuitively say that samples a & b do not come from the same distribution.

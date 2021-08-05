@@ -1,0 +1,249 @@
+---
+title: "R Notebook"
+output:
+    html_document:
+      code_download: true    
+      theme: cosmo
+      toc: true
+      toc_float: true
+      highlight: tango
+      number_sections: true
+---
+
+
+Dataset can be found [here](https://www.kaggle.com/einsteindata4u/covid19).
+
+This notebook was inspired by a [post](https://towardsdatascience.com/predicting-the-probability-of-sars-cov-2-result-using-multiple-logistic-regressing-in-r-and-python-874cf9185d62) from the website [TowardsDataScience](https://towardsdatascience.com).
+
+
+Our goal is twofold:
+- As a first step, we want to identify diseases that have symptoms similar to the Covid 19. In that way, we can recommend to medical centers to separate people infected by these diseases in order to give them a specific attention. This would also allow to avoid to build dataset with false instance (i.e. with false discoveries).
+- Finally, we want to build a predictive model able to classify a patient as infected by the covid 19 or not based on his/her blood's data.
+
+# Data import and pre-processing
+
+```{r}
+library('DescTools')
+library("tidyverse")
+library('corrplot')
+library('boot') # to use cv.glm for Cross-Validation
+library('ROCR') # to use prediction and performance functions for ROC curves
+library('ggplot2') # to use the function ggplot
+library('gridExtra') # to use the command griad.arange to show multiple plots in the same window
+data <- read.csv('../../data/covid.csv');
+data <- data.frame(data);
+data$SARS.Cov.2.exam.result = 1*(data$SARS.Cov.2.exam.result == "positive")
+```
+
+The dataset contains many NaN values. This issue of missing values must be corrected before moving forward.
+
+```{r}
+dfDiseases = data[,append(seq(22,39),c(2,3))];
+dfDiseases = dfDiseases[,-7];
+dfDiseases = na.omit(dfDiseases);
+dfPrediction  = data[,append(seq(7,20),c(2,3,40,42))];
+dfPrediction = na.omit(dfPrediction);
+```
+
+
+# Disease dataset
+
+## Data exploration
+
+I have to skip Parainfluenza 2 as there are no cases for it. Now let’s plot the CramerV’s correlation plot to check the correlation between categorical variables.
+
+```{r}
+# CramerV Correlation to check for any correlation between catagorical variables
+# Except Patient's age, all other variables are catagorical(binary)
+dfDiseases.corr  = PairApply(dfDiseases[,names(dfDiseases) != "Patient.age.quantile"], CramerV, symmetric = TRUE)
+# Displaying correlation with variable SARS_COV2_Result
+dfDiseases.corr[,2]
+# Correlation plot
+corrplot(dfDiseases.corr , method = "square", type = "lower", number.cex=0.5)
+```
+
+Rhinovirus_OR_Enterovirus seems to be the predictor correlated with our target with the correlation value of 0.1517. We now split our dataset in 80% training and 20% test.
+
+```{r}
+# Dividing Train/Test data with 80% training and 20% test
+sample_size <- floor(0.8 * nrow(dfDiseases))
+train <- sample(nrow(dfDiseases), size = sample_size)
+dfDiseases.train <- as.data.frame(dfDiseases[train,])
+dfDiseases.test <- as.data.frame(dfDiseases[-train,])
+```
+
+
+```{r}
+# Logistic regression considering top predictors
+dfDiseases.function = paste("SARS.Cov.2.exam.result", "~", "Patient.age.quantile + Rhinovirus.Enterovirus")
+dfDiseases.glm = glm(as.formula(dfDiseases.function), data = dfDiseases.train , family = binomial)
+summary(dfDiseases.glm)
+```
+
+## Data Analysis
+
+We perform a logistic regression to learn a model able to predict our target.
+
+```{r}
+# Logistic regression considering top predictors
+disease.function = paste("SARS_COV2_Result", "~", "Patient_Age_Quantile + Rhinovirus_OR_Enterovirus")
+disease.glm = glm(as.formula(disease.function), data = disease.train , family = binomial)
+summary(disease.glm)
+```
+
+
+# Prediction of Infection by the SARS Cov 2
+## Data Exploration
+
+### Study of Correlations 
+
+```{r}
+# attaching the final dataset
+attach(dfPrediction)
+# Correlation between variables
+dfPrediction.corr = cor(dfPrediction)
+dfPrediction.corr[,2]
+# Correlation plot
+corrplot(dfPrediction.corr, method = "square", type = "lower", tl.cex = 0.1);
+```
+
+Here we see some highly correlated variables. However, we only consider the predictors which have a high correlation to the target variable. So for the analysis, we will use Patient_Age_Quantile , Leukocytes , Eosinophils , Red_blood_cell_distribution_width_RDW , Platelets , and Proteina_C_reativa_mg_dL predictors.
+
+
+## Prediction with Logistic Regression
+
+
+Let’s predict the error on our test dataset. 
+
+```{r}
+# Dividing Train/Test data with 80% training dataset
+sample_size <- floor(0.8 * nrow(dfPrediction))
+train_ind <- sample(nrow(dfPrediction), size = sample_size)
+dfPrediction.train <- as.data.frame(dfPrediction[train_ind,])
+dfPrediction.test <- as.data.frame(dfPrediction[-train_ind,])
+# Logistic regression considering all the variables on the target variable SARS_COV2_Result
+dfPrediction.function = paste("SARS.Cov.2.exam.result", "~", "Patient.age.quantile + Leukocytes + Eosinophils + Red.blood.cell.distribution.width..RDW. + Platelets + Proteina.C.reativa.mg.dL")
+dfPrediction.glm = glm(as.formula(dfPrediction.function), data = dfPrediction.train , family = binomial)
+summary(dfPrediction.glm)
+# 10 fold cross-validation to verify the model
+cv.glm(dfPrediction.train,dfPrediction.glm,K=10)$delta[1]
+# Predicting on test data based on training set
+dfPrediction.glm.predict <- predict(dfPrediction.glm,dfPrediction.test,type = "response")
+summary(dfPrediction.glm.predict)
+tapply(dfPrediction.glm.predict, dfPrediction.test$SARS.Cov.2.exam.result, mean)
+# Confusion matrix for threshold of 1%
+dfPrediction.confusion = table(dfPrediction.test$SARS.Cov.2.exam.result, dfPrediction.glm.predict > 0.01)
+rownames(dfPrediction.confusion) <- c("Predicted FALSE","Predicted TRUE");
+print(dfPrediction.confusion);
+# False negative error rate (Type II error)
+dfPrediction.type2error = dfPrediction.confusion[1,1]/ (dfPrediction.confusion[1,1]+dfPrediction.confusion[2,2])
+print(paste("The proportion of errors of Type II is ",as.character(dfPrediction.type2error)));
+```
+
+We plot below the ROC curve for our model.
+
+```{r}
+# Plotting ROCR curve
+dfPrediction.ROCRpred = prediction(dfPrediction.glm.predict, dfPrediction.test$SARS.Cov.2.exam.result)
+dfPrediction.ROCRperf = performance(dfPrediction.ROCRpred, "tpr", "fpr")
+plot(dfPrediction.ROCRperf, colorize=TRUE, print.cutoffs.at=seq(0,1,by=0.1), text.adj=c(-0.2,1.7))
+```
+
+We plot the final results.
+
+```{r}
+# Creating a dataframe with variables and predicted values of SARS results
+dfPrediction.predict.dataframe <- data.frame(
+  probability.of.having.SARS=dfPrediction.glm$fitted.values,
+  Leukocytes=dfPrediction.train$Leukocytes,
+  Patient.age.quantile = dfPrediction.train$Patient.age.quantile,
+  Eosinophils = dfPrediction.train$Eosinophils,
+  Red.blood.cell.distribution.width..RDW. = dfPrediction.train$Red.blood.cell.distribution.width..RDW.,
+  Platelets = dfPrediction.train$Platelets,
+  Proteina.C.reativa.mg.dL = dfPrediction.train$Proteina.C.reativa.mg.dL)
+plot1 = ggplot(data=dfPrediction.predict.dataframe, aes(x=Patient.age.quantile, y=probability.of.having.SARS)) +
+  geom_point(aes(color=Patient.age.quantile), size=4)
+plot2 = ggplot(data=dfPrediction.predict.dataframe, aes(x=Leukocytes, y=probability.of.having.SARS)) +
+  geom_point(aes(color=Leukocytes), size=4)
+plot3 = ggplot(data=dfPrediction.predict.dataframe, aes(x=Red.blood.cell.distribution.width..RDW., y=probability.of.having.SARS)) +
+  geom_point(aes(color=Red.blood.cell.distribution.width..RDW.), size=4)
+plot4 = ggplot(data=dfPrediction.predict.dataframe, aes(x=Eosinophils, y=probability.of.having.SARS)) +
+  geom_point(aes(color=Eosinophils), size=4)
+plot5 = ggplot(data=dfPrediction.predict.dataframe, aes(x=Platelets, y=probability.of.having.SARS)) +
+  geom_point(aes(color=Platelets), size=4)
+plot6 = ggplot(data=dfPrediction.predict.dataframe, aes(x=Proteina.C.reativa.mg.dL, y=probability.of.having.SARS)) +
+  geom_point(aes(color=Proteina.C.reativa.mg.dL), size=4)
+# Plotting the values
+grid.arrange(plot1, plot2, plot3, plot4, plot5, plot6, ncol=3 , nrow = 2)
+```
+
+### Usefulness of predictors
+
+
+
+A first visual approach to identify the most relevant variables to predict infections by the SARS Cov 2 consists in fitting a logistic model with only one variable and to plot the probability of being infected by the Covid with respect to the value of this predictor. Let us illustrate this method for some features.
+
+
+```{r}
+# Plotting Separate probability graphs
+plotting.function <- function(var,variableORrank){
+  dfPrediction.sep.function = paste("SARS.Cov.2.exam.result", "~", as.character(var))
+  dfPrediction.sep.glm = glm(as.formula(dfPrediction.sep.function), data = dfPrediction.train , family = binomial)
+  print(summary(dfPrediction.sep.glm))
+  cv.glm(dfPrediction.train,dfPrediction.sep.glm,K=10)$delta[1]
+  
+  dfPrediction.predicted.data <- data.frame(
+    probability.of.SARS=dfPrediction.sep.glm$fitted.values,
+    variable=dfPrediction.train[,as.character(var)])
+  
+  dfPrediction.predicted.data <- dfPrediction.predicted.data[
+    order(dfPrediction.predicted.data$variable, decreasing=FALSE),]
+  
+  dfPrediction.predicted.data$rank <- 1:nrow(dfPrediction.predicted.data)
+  
+  ggplot(data=dfPrediction.predicted.data, aes(x= variable, y=probability.of.SARS)) +
+    geom_point(aes(color=variable), size=3) +
+    xlab(as.character(var)) +
+    ylab("Probability of having SARS CoV-2") +
+    scale_colour_gradient(low = "darkgreen", high = "darkred", na.value = NA) +
+    ggtitle(coef(summary(dfPrediction.sep.glm))[,'Pr(>|z|)'])
+}
+plotfun1 = plotting.function("Platelets")
+plotfun2 = plotting.function("Monocytes")
+plotfun3 = plotting.function("Hemoglobin")
+plotfun4 = plotting.function("Red.blood.cell.distribution.width..RDW.")
+plotfun5 = plotting.function("Red.blood.Cells")
+grid.arrange(plotfun1, plotfun2, plotfun3, plotfun4, plotfun5, ncol=3 , nrow = 2)
+```
+
+
+The previous method to identify relevant predictors is qualitative. Let us now consider a more rigorous approach by using the Likelihood Ratio Test.
+
+
+
+```{r}
+# Plotting Separate probability graphs
+plotting.function <- function(var,variableORrank){
+  dfPrediction.sep.function = paste("SARS.Cov.2.exam.result", "~", as.character(var))
+  dfPrediction.sep.glm = glm(as.formula(dfPrediction.sep.function), data = dfPrediction.train , family = binomial)
+  print(summary(dfPrediction.sep.glm))
+  cv.glm(dfPrediction.train,dfPrediction.sep.glm,K=10)$delta[1]
+  
+  dfPrediction.predicted.data <- data.frame(
+    probability.of.SARS=dfPrediction.sep.glm$fitted.values,
+    variable=dfPrediction.train[,as.character(var)])
+  
+  dfPrediction.predicted.data <- dfPrediction.predicted.data[
+    order(dfPrediction.predicted.data$variable, decreasing=FALSE),]
+  
+  dfPrediction.predicted.data$rank <- 1:nrow(dfPrediction.predicted.data)
+  
+  ggplot(data=dfPrediction.predicted.data, aes(x= variable, y=probability.of.SARS)) +
+    geom_point(aes(color=variable), size=3) +
+    xlab(as.character(var)) +
+    ylab("Probability of having SARS CoV-2") +
+    scale_colour_gradient(low = "darkgreen", high = "darkred", na.value = NA) +
+    ggtitle(coef(summary(dfPrediction.sep.glm))[,'Pr(>|z|)'])
+}
+```
+
