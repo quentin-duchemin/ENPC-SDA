@@ -8,6 +8,12 @@
     <title>SDA</title>
     <meta name="description" content="Additional resources for the course Statistics and Data Analysis. ">
     <meta name="author" content="SDA">
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Config({tex2jax: {inlineMath: [['$','$'], ['\\(','\\)']]}});
+    </script>
+    <script type="text/javascript"
+      src="http://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+    </script>
 
     <script type="application/ld+json">
          {"@context":"http://schema.org/","@type":"CreativeWork","genre":"TrainingMaterial","name":"SDA - Statistics and Data Analysis","description":"Examples of application of method of the course on real datasets. ","keywords":"","audience":["Academia/ Research Institution","Industry","Non-Profit Organisation"],"author":[{"@type":"Organization","alternateName":"ENPC-SDA"}],"learningResourceType":["presentation","exercise","scripts","handout"],"contributor":[{"@type":"Person","name":"Quentin Duchemin"},{"@type":"Person","name":"Julien Reygner"},{"@type":"Person","name":"Gabriel Stoltz"},{"@type":"Person","name":"Guillaume Perrin"}],"inLanguage":"en-us","url":"https://quentin-duchemin.github.io/ENPC-SDA"}
@@ -50,6 +56,125 @@
    
 	<h2 id="Intro">Introduction</h2>
 
+  This repository aims at providing some examples of applications of hypothesis test to answer real world questions. 
+
+
+
+  <h3 id="Errors">An overview of several famous hypothesis tests</h3>
+
+
+
+  <h3 id="Errors">Some tips for your projects</h3>
+
+    <ul>
+      <li> <b>Respect the chronological path of decisions. </b><br>
+        Make sure that you have well understood the structure of the data and that you have well established the question that you want to investigate (i.e. clearly write the null hypothesis and the alternative). Otherwise, it is likely that you will choose the wrong test for your particular data and/or for the proposed hypothesis.
+      </li></br>
+
+      <li>  <b>Do not forget that $\mathbb H_0$ and $\mathbb H_1$ do not play symmetric roles (and understand why).</b><br>
+        Testing procedures are designed to provide a theoretical control of the type $I$ error. Then, deriving theoretical guarantees regarding the type $II$ error is not impossible but more involved. In most cases, the theoretical guarantees that can be provided regarding the control type $II$ error are asymptotic (and typically correspond to a power of the test tending to 1 as $n$ goes to $+\infty$). Non asymptotic theoretical control on the power is in much cases not known.
+      </li></br>
+      <li> <b>Missing the concrete difference between homogeneity tests and independence tests.</b><br>
+        Keep in mind that homogeneity tests aim at understanding if two (or even more) samples have been are drawn from the same population, whereas independent tests are concerned with whether one attribute is independent of the other and involve a single sample from the population.
+      </li></br>
+      <li> Make sure that you are <b>not evaluating the prediction performance of a model with instances used to train it.</b></li><br>
+      <li> <b>Correlation is not causation.</b><br>
+        Just because frogs appear after the rain doesn't mean that frogs have rained!
+      </li></br>
+      <li> <b>Do not mix up the notions of bias and consistence.</b><br>
+        Let us consider random variables $(X_i)_{1\leq i \leq n}$ i.i.d. with $X_1 \sim \mathcal B(p)$ (for some $p \in (0,1)$). Then,  
+        <ol>
+          <li> $X_1$ is an <span style="color:#00FF00";>unbiased</span> but <span style="color:#FF0000";>not consistent</span> estimator of $p$. </li>
+          <li> $\frac{1}{n} \sum_{i=1}^n X_i$ is an <span style="color:#00FF00";>unbiased</span> and <span style="color:#00FF00";>consistent</span> estimator of $p$.</li>
+          <li> $\frac{1}{n+1} \sum_{i=1}^n X_i$ is a <span style="color:#FF0000";>biased</span> and <span style="color:#00FF00";>consistent</span> estimator of $p$. </li>
+          <li> $X_1 / 2$ is a <span style="color:#FF0000";>biased</span> and <span style="color:#FF0000";>not consistent</span> estimator of $p$. </li>
+        </ol>
+      </li></br>
+      <li> <b>Make sure that your dataset fits with the assumptions of the statistical test used.</b><br>
+        The typical assumption that you may check is the normality assumption. But do not forget that for ANOVAs for example, dealing with a continuous variable is an important assumption. If the dependent variable only takes a few different values, it may not be legitimate to analyze it as a continuous variable. <br>
+        Another possible error is the inappropriate use of Chi-square test when numerical value in a cell is less than 5.
+      </li></br>
+      <li> <b>Make sure we did not apply unpaired t-test for paired data.</b><br>
+        A common error is made during the computation of paired and unpaired data. It is necessary for the measurements of two different groups that unpaired observations should be distinguished — for example, patients receiving alternative therapeutic regimens — from that of paired observations, when the comparison is done between two measurements made on the same individuals at different time intervals. For unpaired data, two sample t-test, Mann-Whitney U-test and Chi-square test are useful whereas for paired data the common paired t-test, Wilcoxon test and McNemar's test are used.
+      </li></br>
+      <li> <b>Be curious about how to put theory into practice.</b><br>
+        Natural questions that you should think about are the following.
+        <ol>
+          <li> How random number generator works ?</li>
+          <li> What optimization algorithm is used to estimate the coefficients in a logistic regression ?</li>
+        </ol>
+      </li></br>
+      <li> <b>How to deal with a qualitative variable in a regression model?</b><br>
+        The standard technique is the so-called <i>One-Hot Encoding</i> method. If some feature $X_j$ takes value in a finite space $\mathcal X$ of small cardinality $d$, one can create $d$ dummy variables taking value in $\{0,1\}$ so that every unique value in $\mathcal X$ will be added as a feature. 
+      </li></br>
+      <li> <b>How to deal with missing values?</b><br>
+        There are several usual ways to handle missing data:
+        <ol>
+          <li> Delete rows with missing data </li>
+          <li> Mean/Median/Mode imputation </li>
+          <li> Assigning a unique value </li>
+          <li> Predicting the missing values</li>
+          <li> Using an algorithm which supports missing values, like random forests</li>
+        </ol>
+        The best method is to delete rows with missing data as it ensures that no bias or variance is added or removed, and ultimately results in a robust and accurate model. Indeed, let us describe the drawbacks of the mean imputation.
+        
+        Mean imputation is the practice of replacing null values in a data set with the mean of the data. Mean imputation is generally bad practice because it doesn’t take into account feature correlation. For example, imagine we have a table showing age and fitness score and imagine that an eighty-year-old has a missing fitness score. If we took the average fitness score from an age range of 15 to 80, then the eighty-year-old will appear to have a much higher fitness score that he actually should.
+
+        Second, mean imputation reduces the variance of the data and increases bias in our data. This leads to a less accurate model and a narrower confidence interval due to a smaller variance.
+      </li></br>
+      <li> <b>How to deal with outliers ?</b><br>
+        Keep in mind that theoretical results provided in the course are more or less robust to model mispecification. Let us consider the example of outliers. Suppose that we have a sample of size $n$ where each variable is drawn from a standard normal distribution except that 1/20 of the dataset is replaced by samples drawn from a normal distribution with unit variance but a mean of 100. If we want to estimate the mean value $0$ of the original samples, using the empirical mean is not the best choice possible since it is highly sensitive to outliers. One possible solution consists in using the so-called \textbf{median of means technique} which works as follows.
+
+        <ol>
+          <li> Shuffle the data points and then splits them into $k$ groups of &#8970;$n/k$&RightFloor;  data points. </li>
+          <li> Compute the Arithmetic Mean of each group.</li> 
+          <li> Finally, calculate the median over the resulting $k$ Arithmetic Means.</li>
+        </ol>
+      </li></br>
+      <li> <b>How to select the testing procedure?</b> <br> 
+
+        Let us give a motivation with a concrete example.  The t-Test and the Wilcoxon Rank Sum Test can be both used to compare the mean of two samples. The difference is t-Test assumes the samples being tests are drawn from a normal distribution, while Wilcoxon Rank Sum Test does not. Hence, a natural question is why would we use the t-Test if the Wilcoxon Rank Sum Test address the same problem with fewer model constraint ? <br>
+
+        One short answer to this question is the usual <i>No free lunch</i> principle. If the Wilcoxon Rank Sum Test can be used beyond the gaussian model, this should lead to a <i>less powerful test</i> in the gaussian model where both tests can be used. Let us make this claim concrte.
+      </li>
+    </ul>
+
+
+  <h3 id="Errors">A (non exhaustive) list of common errors in statistics and related fields</h3>
+
+    <ol>
+      <li> <b>Sampling errors </b><br>
+        A sample is a subset of the targeted population. This implies that every dataset may contain groups that are over/under represented. Such unbalance will influence (sometimes dramatically) the results of an analysis. As a consequence, this is a powerful tool to manipulate opinions (in medias or in politic...).
+
+        Note that unbalanced dataset is not always due to malicious people who want to use the data for their benefit. 
+        Dealing with unbalanced datasets is often intrinsic to the problem tackled. This is typically the case when you try to identify rare cases in rather big datasets (e.g. in fraud detection). 
+
+        Confidence intervals or p-values are tools that allow to releave the uncertainty due to such unbalanced structure. However, there are some cases where finding confidence intervals can be tricky (for example for regression coefficients). Methods have been proposed to cope with such situations. One can mention the example of the bootstrapping method.
+      </li> 
+      <li> <b>Use methods beyond their theoretical framework of application</b><br>
+        
+        For example in multiple regression, distributions of variables need to be normal and relationships need to be linear. Another problem comes from the potential mulcolinearity of variables. 
+
+        These errors are commom in the scientific community (according to <a href="https://www.jstor.org/stable/24557422?seq=1#metadata_info_tab_contents"> Schrodt (2010)</a>). To avoid such issue, R contain some functions that can be used to make sure that assumptions are satisfied, such as <i>gvlma()</i>. 
+      </li>
+      <li> <b> Errors due to bias </b><br>
+        <ol>
+          <li> <i>The cherry picking</i> consists in selecting people, facts or situations that correspond to what we want to show and then to generalize the results.</li>
+          <li> <i>Error in measurements</i></li>
+          <li> <i>Error in observations</i></li> In a scientific experiements, it can be to see what we want to see. To avoid this kind of issue, one can use the double blind method.</li>
+        </ol>
+      </li>
+      <li> <b>Explicative errors</b>
+        <ol>
+          <li><i>Approximation error</i><br>
+            A model is always an ideal simplified representation of a complex real phenomenon. There is always an error due lying in the non-explained part by the model. Pearson and Kendal's R, the Cohen's D or the Cramer's V are tools allowing to measure this error. 
+          </li>
+          <li><i>Specification error</i><br>
+            It is likely that at least one of the key features of the problem is considered. In consequence, estimation of the model may yield results that are incorrect or misleading.
+          </li>
+        </ol>
+      </li>
+    </ol> 
 		
 
 	<p>The source for this course webpage is <a href="https://github.com/quentin-duchemin/ENPC-SDA">in github</a>.</p>
@@ -60,4 +185,5 @@
 </div>
 </body>
 </html>
+
 

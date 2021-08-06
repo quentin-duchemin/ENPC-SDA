@@ -32,6 +32,8 @@ In this notebook, we will only be focused on the so-called BIG 3 that correspond
 
 ```{r include=FALSE}
 library('tidyverse')
+library("lattice")
+library('ggplot2')
 data <- read_csv("../../data/tennis.csv");
 ```
 
@@ -48,12 +50,30 @@ NvsD = ('Nadal R.' == data$Winner[(data$Winner %in% big3[-1]) & (data$Loser %in%
 ```
 
 
-## a) Asymptotic Z-tests
+We will use a Z-Test to carry out our study. 
 
-We will use Student Tests to carry out our study.
+
+## Power comparison between the asymptotic Z-test and the exact Fisher test
+
+The following functions compute the p-values resulting from the Fisher Test and the asymptotic Z-test. 
+
+```{r}
+# Exact Fisher Test
+FisherTestStat <- function (seq1,seq2){
+  contingency = matrix(ncol=2,nrow=2);
+  contingency[1,1] = sum(seq1);
+  contingency[2,1] = length(seq1)-contingency[1,1];
+  contingency[1,2] = sum(seq2);
+  contingency[2,2] = length(seq2)-contingency[1,2];
+  Zstat <- fisher.test(contingency);
+  return (Zstat$p.value);
+}
+```
+
 
 ```{r message = FALSE, warning = FALSE, echo = TRUE} 
-computeZstat <- function (seq1,seq2,level=0.05) {
+# Asymptotic Z-Test
+computeAsymptoticZstat <- function (seq1,seq2) {
   n1 = length(seq1);
   n2 = length(seq2);
   bar1 = mean(seq1);
@@ -65,30 +85,106 @@ computeZstat <- function (seq1,seq2,level=0.05) {
 }
 ```
 
-### Study for Federer
+
+In our case, we will deal with sample sizes around 40. We propose to study the power of both tests for sample size of this order.
+
+Let us first check that the above functions are working correctly by plotting the proportion of Type I errors for tests with level 0.05.
+
+
+```{r}
+# Proportion of Type I error for both tests depending on the sample size (using a level = 0.05)
+level = 0.05;
+i = 1;
+list_n <- seq(20,200,by=10);
+fisher <- rep(0,length(list_n));
+
+asymptoticZtest <- rep(0,length(list_n));
+for (n in list_n){
+  for (k in 1:1000){
+      seq1 = rbinom(n,1,0.5);
+      seq2 = rbinom(n,1,0.5);
+      asymptoticZtest[i] = asymptoticZtest[i] + 1*(computeAsymptoticZstat(seq1,seq2)$pval < level)/1000;
+      fisher[i] = fisher[i] + 1*(FisherTestStat(seq1,seq2) < level)/1000;
+    }
+  i = i+1;
+}
+errorstype1 <- data.frame(list_n,fisher,asymptoticZtest);
+ggplot(errorstype1, aes(list_n)) +                    # basic graphical object
+  geom_line(aes(y=fisher,  colour="Fisher test")) +  # first layer
+  geom_line(aes(y=asymptoticZtest,  colour = "Asymptotic Z test")) + # second layer
+  scale_color_manual(name = "", values = c("Asymptotic Z test" = "green", "Fisher test" = "red")) +
+  labs(x = "Sample size") +
+  labs(y = "Proportion of Type I error")
+
+```
+
+As theoretically guaranteed, the Fisher test leads to a proportion of Type I errors smaller than 0.05. Indeed, it is the opportunity to recall that Fisher test only provides an upper bound on the level of the test. 
+
+Regarding the asymptotic Z-test, the proportion of Type I errors is around 0.05 but may slightly above or below this value due to randomness but also due to the fact that the theoretical control of the level of the test holds only asymptotically.
+
+Let us now dig into the power study. We consider two sequences of Bernoulli random variables with respective parameters p1 and p2 with 0.5-p1=p2-0.5.
+
+```{r}
+level = 0.05;
+list_n = seq(10,100,by=10);
+list_gaps = seq(0.,0.2,by=0.02);
+power_asymptoticZtest = matrix(0,ncol=length(list_n),nrow=length(list_gaps));
+power_fisher = matrix(0,ncol=length(list_n),nrow=length(list_gaps));
+i = 1;
+for (n in list_n){
+  j = 1;
+  for (gap in list_gaps){
+    p1 = 0.5-gap;
+    p2 = 0.5+gap;
+    for (k in 1:300){
+      seq1 = rbinom(n,1,p1);
+      seq2 = rbinom(n,1,p2);
+      
+      power_asymptoticZtest[j,i] = power_asymptoticZtest[j,i] + 1*(computeAsymptoticZstat(seq1,seq2)$pval < level)/300;
+      power_fisher[j,i] = power_fisher[j,i] + 1*(FisherTestStat(seq1,seq2) < level)/300;
+    }
+    j = j+1;
+  }
+  i = i+1;
+}
+```
+
+```{r}
+heatmap <- expand.grid(X=list_gaps, Y=list_n);
+heatmap$Z <- c(power_asymptoticZtest - power_fisher);
+
+## Try it out
+levelplot(Z ~ X*Y, data=heatmap  ,xlab="p2-p1", ylab="Number of samples: n",
+          main="Power(Asymptotic Z test) - Power(Fisher Test)")
+```
+
+The heatmap shows that the power of asymptotic Z test is greater than the one of the Fisher test in the range of sample size of interest. Hence, in the following, we will use the asymptotic Z test.
+
+
+## Study for Federer
 
 ```{r}
 # We compute the p-value of the T-Test for Federer
-resZtest <- computeZstat(FvsN,FvsD);
+resZtest <- computeAsymptoticZstat(FvsN,FvsD);
 resZtest$pval
 ```
 
 The p-value is equal to 0.2 meaning that we do not reject the null hypothesis. Hence, the probability of victory of Federer over Nadal is not statistically different from the one of Federer over Djokovic.
 
-### Study for Nadal
+## Study for Nadal
 
 ```{r}
 # We compute the p-value of the T-Test for Nadal
-resZtest <- computeZstat(1-FvsN,NvsD);
+resZtest <- computeAsymptoticZstat(1-FvsN,NvsD);
 resZtest$pval;
 ```
 The p-value is equal to 0.04 meaning that we would tend to reject the null hypothesis. Hence, the probability of victory of Nadal over Federer is statistically different (in this case: larger) from the one of Nadal over Djokovic.
 
-### Study for Djokovic
+## Study for Djokovic
 
 ```{r}
 # We compute the p-value of the T-Test for Djokovic
-resZtest <- computeZstat(1-FvsD,1-NvsD);
+resZtest <- computeAsymptoticZstat(1-FvsD,1-NvsD);
 resZtest$pval;
 ```
 The p-value is equal to 0.85 meaning that we do not reject the null hypothesis. Hence, the probability of victory of Djokovic over Federer is not statistically different from the one of Djokovic over Nadal.
@@ -126,7 +222,7 @@ Nadal_study <- function(df){
     for (surface in list_surfaces){
       FvsNsurface = ('Federer R.' == df$Winner[(df$Winner %in% big3[-3]) & (df$Loser %in% big3[-3]) & (df$Surface == surface)]);
       NvsDsurface = ('Nadal R.' == df$Winner[(df$Winner %in% big3[-1]) & (df$Loser %in% big3[-1]) & (df$Surface == surface)]);
-      resZtest <- computeZstat(1-FvsNsurface,NvsDsurface);
+      resZtest <- computeAsymptoticZstat(1-FvsNsurface,NvsDsurface);
       pvals = append(pvals, resZtest$pval);
       probasNadalvictory['Federer R.',surface] <- mean(1-FvsNsurface);
       probasNadalvictory['Djokovic N.',surface] <- mean(NvsDsurface);
@@ -191,7 +287,7 @@ Djokovic_study <- function(df){
     for (surface in list_surfaces){
       DvsNsurface = ('Djokovic N.' == df$Winner[(df$Winner %in% big3[-1]) & (df$Loser %in% big3[-1]) & (df$Surface == surface)]);
       DvsFsurface = ('Djokovic N.' == df$Winner[(df$Winner %in% big3[-2]) & (df$Loser %in% big3[-2]) & (df$Surface == surface)]);
-      resZtest <- computeZstat(DvsNsurface,DvsFsurface);
+      resZtest <- computeAsymptoticZstat(DvsNsurface,DvsFsurface);
       pvals = append(pvals, resZtest$pval);
       probasDjokovicvictory['Federer R.',surface] <- mean(DvsFsurface);
       probasDjokovicvictory['Nadal R.',surface] <- mean(DvsNsurface);

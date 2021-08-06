@@ -10,3 +10,4 @@ install.packages('boot') # to use cv.glm for Cross-Validation
 install.packages('ROCR') # to use prediction and performance functions for ROC curves
 install.packages('gridExtra') # to use the command grid.arange to show multiple plots in the same window
 install.packages('lmtest') 
+install.packages("lattice")
