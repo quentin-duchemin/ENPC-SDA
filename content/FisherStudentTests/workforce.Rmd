@@ -14,7 +14,7 @@ To go back to the Home page, click [here](https://quentin-duchemin.github.io/ENP
 
 <br></br>
 
-The Workforce dataset shows the labour force participation rates for males and females over time for several countries in Europe and North America. The data for this example was taken from the [worldbank website](http://wdi.worldbank.org/table/2.2) and records the labour force participation rates for males and females over time by country.
+The Workforce dataset shows the labour force participation rates for males and females over time for several countries in Europe and North America. The data for this example was taken from the [worldbank website](http://wdi.worldbank.org/table/2.2).
 
 ```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
 install.packages('tidyverse')
@@ -32,7 +32,10 @@ colnames(df) <- c('Country', 'M2000' , 'M2013', 'F2000', 'F2013', 'Continent');
 ```
 
 
-# Has there  been  a  change  in  rates  of females  participating  in  the  labour  force (RFPLF)  across  both  continents  from  2000  to 2013 ?
+# Global trends in the female workforce over time
+
+
+**Has there  been  a  change  in  rates  of females  participating  in  the  labour  force (RFPLF)  across  both  continents  from  2000  to 2013 ?**
 
 
 To answer this question, we plan to conduct a Student test. To trust the result obtained with this approach, we need to first check that the assumptions of the T-test hold for our data.
@@ -51,7 +54,7 @@ ggdensity(df$F2013,
           xlab = "RFPLF")
 ```
 
-This first visual representation does not allow us to directly conclude that the assumption of gaussian dstributions is not correct. To get more information, we continue our analysis using Q-Q plots.
+This first visual representation does not allow us to directly conclude that the assumption of gaussian distributions is not correct. To get more information, we continue our analysis using Q-Q plots.
 
 ```{r}
 ggqqplot(df$F2000, title='Q-Q plot for the rates of females participating in the labour force in 2000');
@@ -94,7 +97,9 @@ ttest1
 Since p<0.001,  we reject the null hypothesis and we conclude that there is evidence of an increase in the rates of females participating in the labour force over time across both Europe and North America.
 
 
-# Is there a difference in female labour force participation rates in 2013 between Europe and North America?
+# Difference in female workforce between continents in 2013
+
+**Is there a difference in female labour force participation rates in 2013 between Europe and North America?**
 
 To answer this question, we use again a T-test.
 

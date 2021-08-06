@@ -14,16 +14,33 @@ To go back to the Home page, click [here](https://quentin-duchemin.github.io/ENP
 
 <br></br>
 
+
+# Data Description
+
+The dataset contains the results for the men's ATP tour date back to January 2000, including Grand Slams, Masters Series, Masters Cup and International Series competitions. All head to head matches are provided with rank of both opponents, the name of the winner, and the final score. A more detailled description of the data can be found [here]('../../data/metadata/tennis.txt').
+
 The data can be found [here](https://www.kaggle.com/jordangoblet/atp-tour-20002016/version/2?select=Data.csv).
 
-```{r}
+
+<br></br>
+
+In this notebook, we will only be focused on the so-called BIG 3 that corresponds to the three best tennis players over the last 20 years, namely Roger Federer, Rafael Nadal and Novak Djokovic. 
+
+<br></br>
+
+
+
+```{r include=FALSE}
 library('tidyverse')
 data <- read_csv("../../data/tennis.csv");
 ```
 
-# 1) Study of the big three
+# Study of head to head in the BIG 3
+
+Players in the BIG 3 have really different game styles. In this first section, we want to test for each member of the BIG 3 if he has the same chances to win against one or the other of its greatest rivals.
 
 ```{r}
+# Selecting Head to Head matches
 big3 =  c('Federer R.','Nadal R.', 'Djokovic N.')
 FvsN = ('Federer R.' == data$Winner[(data$Winner %in% big3[-3]) & (data$Loser %in% big3[-3])]);
 FvsD = ('Federer R.' == data$Winner[(data$Winner %in% big3[-2]) & (data$Loser %in% big3[-2])]);
@@ -32,6 +49,9 @@ NvsD = ('Nadal R.' == data$Winner[(data$Winner %in% big3[-1]) & (data$Loser %in%
 
 
 ## a) Asymptotic Z-tests
+
+We will use Student Tests to carry out our study.
+
 ```{r message = FALSE, warning = FALSE, echo = TRUE} 
 computeZstat <- function (seq1,seq2,level=0.05) {
   n1 = length(seq1);
@@ -45,35 +65,56 @@ computeZstat <- function (seq1,seq2,level=0.05) {
 }
 ```
 
-### Study of Federer
+### Study for Federer
 
 ```{r}
+# We compute the p-value of the T-Test for Federer
 resZtest <- computeZstat(FvsN,FvsD);
 resZtest$pval
 ```
 
 The p-value is equal to 0.2 meaning that we do not reject the null hypothesis. Hence, the probability of victory of Federer over Nadal is not statistically different from the one of Federer over Djokovic.
 
-### Study of Nadal
+### Study for Nadal
 
 ```{r}
+# We compute the p-value of the T-Test for Nadal
 resZtest <- computeZstat(1-FvsN,NvsD);
 resZtest$pval;
 ```
-The p-value is equal to 0.04 meaning that we would tend to reject the null hypothesis. Hence, the probability of victory of Nadal over Federer is statistically different (larger) from the one of Nadal over Djokovic.
+The p-value is equal to 0.04 meaning that we would tend to reject the null hypothesis. Hence, the probability of victory of Nadal over Federer is statistically different (in this case: larger) from the one of Nadal over Djokovic.
 
-### Study of Djokovic
+### Study for Djokovic
 
 ```{r}
+# We compute the p-value of the T-Test for Djokovic
 resZtest <- computeZstat(1-FvsD,1-NvsD);
 resZtest$pval;
 ```
 The p-value is equal to 0.85 meaning that we do not reject the null hypothesis. Hence, the probability of victory of Djokovic over Federer is not statistically different from the one of Djokovic over Nadal.
 
 *Conclusion*
-While Nadal and Djokovic have a probability of victory against the other members of the Big 3 that does not depend on the opponent, we showed that Nadal has significantly less chance of winning against Djokovic than against Federer. 
+While Nadal and Djokovic have a probability of victory against the other members of the Big 3 that does not depend on the opponent, we showed that Nadal has significantly less chance of winning against Djokovic than against Federer.
 
-Let us take a closer look to this fact by conducting the test on the different surfaces. We only focus on Clay and Hard Court since we do not have enough data for Carpet and Grass.
+<br> </br>
+
+Now we want to understand why Nadal performs better when facing Federer than Djokovic. In the following, we will be focused on the following questions.
+
+1. Does this fact holds for every surfaces?
+
+2. Was it true during the whole Nadal's career?
+
+We first investigate the influence of the surface.
+
+# Influence of the Surface
+
+We take a closer look to matches between Nadal and tho others members of the BIG 3 depending on the different surfaces. We only focus on Clay and Hard Court since we do not have enough data for Carpet and Grass.
+
+The R function presented below returns:
+
+   1. the probability of victory of Nadal over Federer or Djokovic on both surfaces
+
+   2. the p-value of the T-test of the previous section conducted on both surfaces separately
 
 ```{r}
 Nadal_study <- function(df){
@@ -103,11 +144,15 @@ Nadal_res$probasvictory
 ```
 
 
-With a p-value=0.15 for Clay, we conclude that the difference between the probabilities of victory of Nadal against Federer or Djokovic are not statistically different (Nadal is known to be the King of Clay ;) ).
+With a p-value=0.15 for Clay, we conclude that the difference between the probabilities of victory of Nadal against Federer or Djokovic are not statistically different (Nadal is known to be the King of Clay ;) Hence he often comes out with a victory on this surface regardless of the opponent).
+
 However, on Hard courts the p-value is 0.045 and we can conclude that Nadal has greater chances to win against Federer rather than Djokovic.
 
 
-# 2) Understanding the temporal aspects of the previous fact.
+# Studying Nadal matches over time
+
+Based on the previous section, we will still consider separately the different surfaces: Clay and Hard courts. We do the same tests as previously but focusing on matches played before 2010 or after 2010.
+
 
 ## a) Before 2010
 
@@ -117,6 +162,8 @@ Nadal_res <- Nadal_study(data[dates <= 2010,]);
 Nadal_res$pvals
 Nadal_res$probasvictory
 ```
+We do not reject the null hypothesis for both Clay and Hard courts working with matches played before 2010. Hence, for matches played before 2010, the difference in probability of victory of Nadal over Federer or Djokovic is not statistically significant.
+
 ## b) After 2010
 ```{r}
 Nadal_res <- Nadal_study(data[dates > 2010,]);
@@ -124,5 +171,41 @@ Nadal_res$pvals
 Nadal_res$probasvictory
 ```
 
-We do not reject the null hypothesis for both Clay and Hard courts working with matches played before 2010. However, we reach the conclusions of the previous sections if we focus only on matches played after 2010.
-This is easily understandable: Before 2010, Federer and Djokovic were both completely dominated by Nadal on Clay while they were both slightly better than Nadal on hard courts. After 2010, Federer was getting holder and it became difficult for him to compete with Nadal even on hard courts. On the contrary, Djokovic went from good to almost unbeatable from 2011.
+Contrary to the previous paragraph, we again reach the conclusion that Nadal has significantly more chances to win over Federer than Djokovic on Hard courts if we focus only on matches played after 2010. Moreover, the p-value on Clay for matches played after 2010 is equal to 0.07, which is smaller compared to the previous section. If this result may be too weak to reject the null with conviction, it could lead us to think that the older Nadal was getting, the better it is for him to face Federer rather than Djokovic (regardless of the surface).
+
+<br> </br>
+
+# Conclusion
+
+A distracted reader could think that the main reason explaining the results of this study is the age of Federer. One could easily think that after 2010, Federer was still a high level player but found difficulties to compete with the other members of the BIG 3.
+
+But if it was the case, we should also find a difference between the probability of victory of Djokovic over Nadal or Federer for matches after 2010, which is not the case has shown below.
+
+```{r}
+Djokovic_study <- function(df){
+    list_surfaces = c("Clay","Hard");
+    pvals = list();
+    probasDjokovicvictory = data.frame(matrix(ncol=length(list_surfaces),nrow=2));
+    colnames(probasDjokovicvictory) <- list_surfaces;
+    rownames(probasDjokovicvictory) <- c('Federer R.', 'Nadal R.');
+    for (surface in list_surfaces){
+      DvsNsurface = ('Djokovic N.' == df$Winner[(df$Winner %in% big3[-1]) & (df$Loser %in% big3[-1]) & (df$Surface == surface)]);
+      DvsFsurface = ('Djokovic N.' == df$Winner[(df$Winner %in% big3[-2]) & (df$Loser %in% big3[-2]) & (df$Surface == surface)]);
+      resZtest <- computeZstat(DvsNsurface,DvsFsurface);
+      pvals = append(pvals, resZtest$pval);
+      probasDjokovicvictory['Federer R.',surface] <- mean(DvsFsurface);
+      probasDjokovicvictory['Nadal R.',surface] <- mean(DvsNsurface);
+    }
+    names(pvals) <- list_surfaces;
+    return (list(pvals=pvals,probasvictory=probasDjokovicvictory));
+}
+```
+
+```{r}
+Djokovic_res <- Djokovic_study(data[dates > 2010,]);
+Djokovic_res$pvals
+```
+
+Hence saying that Federer level decayed after 2010 would be a hasty conclusion. 
+
+From my personal point of view (and as a tennis fan), the fact that Nadal had better chances to win against Federer rather than against Djokovic was mainly due to a psychological ascendant he hed on the Swiss. But everyone will make his own opinion !

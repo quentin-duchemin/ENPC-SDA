@@ -73,7 +73,7 @@ library(car)
 # Data import
 
 ```{r,message=FALSE}
-lettuce <- read_csv("https://raw.githubusercontent.com/GTPB/PSLS20/master/data/freshweight_lettuce.txt")
+lettuce <- read_csv("../../data/lettuce.text")
 #Take a glimpse at the data
 glimpse(lettuce)
 ```
