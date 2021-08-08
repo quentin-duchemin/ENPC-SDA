@@ -11,3 +11,4 @@ install.packages('ROCR') # to use prediction and performance functions for ROC c
 install.packages('gridExtra') # to use the command grid.arange to show multiple plots in the same window
 install.packages('lmtest') 
 install.packages("lattice")
+install.packages("ramify")
