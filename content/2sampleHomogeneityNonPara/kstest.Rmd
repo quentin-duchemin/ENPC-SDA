@@ -79,7 +79,7 @@ powercomparison <- function (mu1,mu2,sigma1,sigma2,nametest='Student Test'){
       tTest = t.test(s1,s2,var.equal=TRUE);
     }
     else{
-      tTest = t.test(s1,s2,var.equal=TRUE);
+      tTest = t.test(s1,s2,var.equal=FALSE);
     }
     p_ttest[i] = tTest$p.value;
     ksTest = ks.test(s1,s2);
