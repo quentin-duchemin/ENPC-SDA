@@ -1,0 +1,127 @@
+---
+title: "Power comparison between the Student/Welch Test and the KS Test"
+output:
+    html_document:
+      code_download: true    
+      theme: cosmo
+      toc: true
+      toc_float: true
+      highlight: tango
+      number_sections: true
+---
+
+
+# Back to Basics
+
+
+## The Welch Test
+
+Let us recall that the Welch Test is an extension of the Student Test to test if two independent samples generated from two gaussian distributions have the same mean value in the case where they may have different variances.
+
+Let us start with a simple application of the Welch Test. We generate two datasets from two normal distribution they have same mean but different variances.
+
+```{r}
+library(ggplot2);
+library('ramify');
+s1 <- randn(200, mean=0, sd=1);
+s2 <- randn(200, mean=0, sd=1.6);
+```
+
+We can check the distribution of them with hist plot:
+
+```{r}
+df <- data.frame(
+  samples=append(s1,s2),
+  origin=append(rep('sample1',200),rep('sample2',200))
+  )
+ggplot(df, aes(x=samples, color=origin, fill=origin)) +geom_histogram(aes(y=..density..), position="identity", alpha=0.5)+
+geom_density(alpha=0.2)
+```
+
+Next, we do the Welch test to compare these the mean of these two samples (since their variances are different).
+
+```{r}
+tTest = t.test(s1, s2, var.equal = FALSE);
+print(tTest);
+```
+
+The p-value is too high, we can not reject the null hypothesis at 0.05 level. The Welch Test finds correctly that the two samples have the same mean.
+
+
+## The Kolmogorov Smirnov Test (KS)
+
+The KS test is a non parametric test that allows to test if two continuous distributions are different. Since the sequences generated in the previous section have different standard deviations, the KS test should reject the null. 
+
+```{r}
+ksTest <- ks.test(s1,s2);
+print(ksTest);
+```
+
+The difference was be shown by the small p-value.
+
+# Power comparison between the Student or Welch Test, and the KS Test
+
+## Student VS KS
+
+Now we consider two samples generated from two different gaussian distributions with the same variances but with different means. We want to study the distribution of p-value obtained from the Student-test and the KS-Test in this case.
+
+
+```{r}
+powercomparison <- function (mu1,mu2,sigma1,sigma2,nametest='Student Test'){
+  n <- 200;
+  p_ttest = rep(0,300);
+  p_kstest = rep(0,300);
+  
+  for (i in 1:300){
+    s1 <- randn(200, mean=mu1, sd=sigma1);
+    s2 <- randn(200, mean=mu2, sd=sigma2);
+    if (nametest == 'Student Test'){
+      tTest = t.test(s1,s2,var.equal=TRUE);
+    }
+    else{
+      tTest = t.test(s1,s2,var.equal=TRUE);
+    }
+    p_ttest[i] = tTest$p.value;
+    ksTest = ks.test(s1,s2);
+    p_kstest[i] <- ksTest$p.value;
+  }
+  df <- data.frame(pvalue = append(p_ttest,p_kstest), test = append(rep(nametest,length(p_ttest)),rep('KS Test',length(p_kstest))))
+  boxplot(pvalue ~ test, data = df, varwidth = TRUE)
+}
+
+
+mu1 <- 1;
+mu2 <- 1.2;
+sigma1 <- 1;
+sigma2 <- 1;
+powercomparison(mu1,mu2,sigma1,sigma2);
+```
+
+We see that the power of the Student Test is larger than the one of the KS test. Indeed, we obtain smaller p-values with the Student test compared to the KS test. This was predictable since we perfectly match the conditions of application of the Student Test. On the contrary, the KS test can be used for any continuous distributions and the *no free lunch principle* would lead us to think that **the generality of the KS test should be paid in power in some situations.**
+
+
+## Welch VS KS
+
+We know consider different variances for the two gaussian distributions. In the following, we show that the power comparison between the KS and the Welch Test is less obvious in this case.
+
+
+Based on the result of the previous section, it seems natural to think that if the two variances are close enough, the power of the Welch Test will still be larger than the one of the KS test. This is shown below on an example.
+
+```{r}
+mu1 <- 1;
+mu2 <- 1.2;
+sigma1 <- 1;
+sigma2 <- 1.02;
+powercomparison(mu1,mu2,sigma1,sigma2,nametest='Welch Test');
+```
+
+However, when the difference between variances is getting larger, the KS test can become more powerful.
+
+```{r}
+mu1 <- 1;
+mu2 <- 1.2;
+sigma1 <- 1;
+sigma2 <- 1.25;
+powercomparison(mu1,mu2,sigma1,sigma2,nametest='Welch Test');
+```
+
