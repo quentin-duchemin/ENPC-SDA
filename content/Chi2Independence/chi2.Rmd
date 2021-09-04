@@ -1,0 +1,79 @@
+---
+title: "Chi 2 Independence Test for tax reform bill in the US"   
+output:
+  html_document:
+  code_download: true    
+theme: cosmo
+toc: true
+toc_float: true
+highlight: tango
+number_sections: true
+---
+ 
+This notebook was freely inspired by the work of [Chester Ismay](https://ismayc.github.io/).
+
+A random sample of 500 U.S. adults were questioned regarding their political affiliation (democrat or republican) and opinion on a tax reform bill (favor, indifferent, opposed). Based on this sample, do we have reason to believe that political party and opinion on the bill are related?
+
+# Exploring the data
+
+```{r}
+democrat <- c(138,83,64);
+republican <- c(64,67,84);
+tax_opinion <- data.frame(democrat, republican);
+rownames(tax_opinion) <- c('favor','indifferent','opposed');
+tax_opinion
+```
+
+```{r}
+mosaicplot(tax_opinion,
+           ylab = "Political Party", 
+           xlab = "Tax Reform Bill Opinion",
+           main = "Opinion vs Party",
+           color = c("orange", "blue"));
+```
+
+
+# Test statistic
+
+The test statistic is a random variable based on the sample data. Here, we want to look for deviations from what we would expect cells in the table if the null hypothesis were true. We introduce the following notation
+
+$$\hat p_{party, opinion}= \frac{1}{n} \sum_{i=1}^n \mathbb 1_{\{\mathcal P_i=party,\;\mathcal O_i=opinion\}}$$
+where $n$ is the total number of samples, $\mathcal O_i$ is the opinion of the individual $i$ and $\mathcal P_i$ is his/her political party. Adopting the straightforward additional notations
+$$\hat p_{party}= \sum_{opinion} \hat p_{party, opinion}\quad \text{and} \quad \hat p_{opinion}= \sum_{party} \hat p_{party, opinion},$$
+the $\chi^2$ test statistic is given by
+
+$$d'_n = n \sum_{party,opinion} \frac{( \hat p_{party, opinion}- \hat p_{party} \hat p_{opinion})^2}{\hat p_{party} \hat p_{opinion}},$$
+which simply reads as $n$ times the $\chi^2$ divergence between the joint distribution of the two random variables $Party$ and $Opinion$ and the product the the marginals.
+
+Keep in mind that the $\chi^2$ divergence is a measure of discrepancy between probability measures. The $\chi^2$ divergence is not a distance on the space of probability measures since it is not symmetric, however it has the nice property to be always non-negative and to be zero if and only if both probability measures are equal (up to some negligible set).
+
+Assuming the conditions outlined above are met, $d'_n \sim \chi^2(df=(m−1)\times (\ell−1))$ where $m=3$ is the number of possible opinions and $\ell=2$ is the number of political parties.
+
+
+# Check theoretical assumptions
+
+Remember that before applying the $\chi^2$ test, we need to check that some conditions are met.
+
+- **Independence**: Each case that contributes a count to the table must be independent of all the other cases in the table.
+
+This condition is met since cases were selected at random to observe.
+
+- **Validity of the asymptotic approximation**: The $\chi^2$ test is based on the approximation of
+the law of Pearson’s statistic under $\mathbb H_0$ by the $\chi^2$ distribution, which theoretically only holds when $n$
+goes to $+\infty$. In practice, this approximation is considered to be legitimate when the property
+$$n \hat p_{party}\hat p_{opinion} (1-\hat p_{party}\hat p_{opinion})\geq 5,$$
+for any party and any opinion. This is met by observing the table above.
+
+
+
+# Compute the p-value
+
+We use the `chisq.test` function to compute the test statistic and to get the p-value of our test. 
+
+```{r}
+chisq.test(x = tax_opinion, correct = FALSE)
+```
+
+# Conclusion
+
+The p-value obtained is really small and we reject the null hypothesis (even for a test level of 0.01). Our initial guess that a statistically significant difference existed in the proportions of Democrats across the three groups was backed up by this statistical analysis. We do have evidence to suggest that there is a dependency between the position taken on the tax reform bill and political party for US adults, based on this sample.
