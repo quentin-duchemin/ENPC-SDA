@@ -1,0 +1,173 @@
+---
+title: "Introduction to the Shapiro Wilk Test"
+output:
+    html_document:
+      code_download: true    
+      theme: cosmo
+      toc: true
+      toc_float: true
+      highlight: tango
+      number_sections: true
+---
+
+The Shapiro-Wilk test is a test of normality. Empirically, this test appears to be most powerful than other famous tests for normality such as Lilliefors test. In the following, we consider i.i.d. realizations $y_{1},...,y_n$ of some random variable $Y$.
+
+
+# Intuition behind the test
+The basis idea behind the Shapiro-Wilk test is to estimate the variance of the sample $(y_i)_{1\leq i \leq n}$ in two ways: 
+
+- under the null (i.e. if observations are drawn from a normal distribution), we can estimate the variance through the slope of the regression line in the QQ-Plot
+
+- using the standard estimator of the population variance $S^2_n = \frac{1}{n-1}\sum_{i=1}^n (y_i-\bar y)^2$ where $\bar y = n^{-1}\sum_{i=1}^n y_i$.
+
+Both estimated values should approximately equal in the case of a normal distribution and thus should result in a quotient of close to 1. If the quotient is significantly lower than 1 then the null hypothesis (of having a normal distribution) should be rejected.
+\medskip
+
+Let us show in what follows how we can estimate the slope of the QQ-Plot.
+
+# Variance estimation using order statistics
+Our goal is to know if the $y_i$'s are realizations of an underlying normally distributed random variable. We denote $(y_{(1)}, ..., y_{(n)})$ the vector of ordered observations (in ascending order). We denote $x_{1},...,x_n$ i.i.d. samples drawn from a standard normal distribution $\mathcal N(0,1)$. Analogously, we denote $x_{(1)}\leq x_{(2)}\leq ...\leq x_{(n)}$ the ordered sequence. For each $i \in [n]$, let $m_i:= \mathbb E[x_{(i)}].$ 
+
+If the $y_i$'s come from a normal distribution $\mathcal N(\mu, \sigma^2)$ (with $\mu \in \mathbb R$, $\sigma^2>0$), we can write
+\[y_{(i)}=\mu + \sigma x_{(i)} = \mu +  \sigma m_{i} + \sigma (x_{(i)}-m_i),\]
+where we can interpret $\epsilon_i:=(x_{(i)}-m_i)$ has a noise term and it holds
+\[ \mathbb E[\epsilon_i]=0, \quad Cov(\epsilon_i,\epsilon_j) = \sigma^2 Cov(x_{(i)},x_{(j)} ), \quad \forall i,j \in [n]. \quad (*)\] 
+Hence, we get that
+\begin{equation} \label{eq:extended-eq} \mathbf y = \begin{bmatrix}  \mathbf 1 & \mathbf m \end{bmatrix} \begin{bmatrix}  \mu \\ \sigma^2\end{bmatrix} + \mathbf \epsilon, \end{equation}
+where $\mathbf y =(y_{(1)},...,y_{(n)})^{\top}$, $\mathbf m =(m_{1}, ..., m_{n})^{\top}$, $\mathbf 1 =(1, ..., 1)^{\top}$ and with $\mathbf \epsilon \sim \mathcal N(0,\sigma^2 V)$ where $V=\left( Cov(x_{(i)},x_{(j)} )\right)_{i,j}$ is the covariance matrix of the standard normal
+order statistics. This shows that $\sigma$ is the slope of the QQ-Plot, namely the slope of the regression line of the ordered $y_{(i)}$'s on the $m_i$. One can prove that the best linear unbiased estimators (BLUEs) of the two parameters $\mu$ and $\sigma$ in
+the generalized regression model $(*)$ are
+\[\hat  \mu = \frac{\mathbf 1 ^{\top}V ^{-1}y}{\mathbf 1^{\top}V^{-1} \mathbf 1}\quad \text{and}\quad  \hat  \sigma = \frac{\mathbf m ^{\top}V ^{-1}y}{\mathbf m^{\top}V^{-1} \mathbf m}.\]
+
+# The Shapiro Wilk test
+
+The test statistic is
+
+\begin{equation*} W =\dfrac{\left( \sum_{i=1}^n a_i y_{(i)} \right)^2}{\sum_{i=1}^n (y_i - \bar{y})^2}, \end{equation*}
+
+where
+
+\[    \bar{y} := \frac{1}{n}\sum_{i=1}^n y_i \quad \text{and}\quad  \mathbf a:=\frac{V ^{-1}\mathbf m}{\left(\mathbf m^{\top}V^{-1}V^{-1} \mathbf m\right)^{1/2}}.\] 
+
+Note that 
+\[(n-1)W = \frac{\hat \sigma^2}{S_n^2} \times \frac{(\mathbf m^{\top}V^{-1} \mathbf m)^2}{\mathbf m^{\top}V^{-1}V^{-1} \mathbf m} =\frac{\hat \sigma^2}{S_n^2} \times \frac{\kappa^2}{\psi},  \]
+with $\kappa := \mathbf m^{\top}V^{-1} \mathbf m$ and $\psi := \mathbf m^{\top}V^{-1}V^{-1} \mathbf m$.
+
+That is, up to a constant, $W$ is the squared ratio of the best linear unbiased estimator (BLUE) $\hat \sigma$
+of the slope of a regression line of the ordered $y_{(i)}$ on the $m_i$ and of the estimator of the standard
+deviation $S^2_n$.
+
+
+
+
+# Studying the evolution of the Shapiro test Statistic using mixture of gaussian and exponential distributions
+
+We vary a mixing coefficient $\alpha$ between $0$ and $1$ and we compute the Shapiro test statistic for samples drawn from the mixture distribution $$\alpha \mathcal N(0,1) + (1-\alpha) \mathcal E(1).$$
+
+
+```{r}
+n <- 10;
+nbite <- 2000;
+mix_coefs <- seq(from=0,to=1,by=0.2)
+correlations2 <- matrix(0,nrow=length(mix_coefs),ncol=1);
+i <- 1;
+for (coef in mix_coefs){
+  for (k in 1:nbite){
+    x <- rnorm(n, 0, 1);
+    z <- rexp(n, 1);
+    y = coef*x+(1-coef)*z;
+    shapi = shapiro.test(y);
+    correlations2[i] <- correlations2[i] + shapi$statistic/nbite;
+  }
+  
+  i <- i+1;
+}
+plot(mix_coefs, correlations2, type="b", pch=19, col="red", xlab="Mixture coefficient: alpha", ylab="Shapiro Wilk test statistic : W")
+```
+
+
+
+
+
+# Questions 
+
+
+
+There does not exist a closed form for the distribution of $W$ under the null. However, we will prove with this exercise that $W$ is free under the null and we motivate with theoretical considerations the rejection region of the test.
+
+
+1. Prove that \[a_{i} = - a_{n-i+1},  \quad \forall i \in [n].\]
+Deduce that $\sum_{i=1}^n a_i =0.$
+2. Prove that $W$ is scale and translation invariant.
+3. Deduce that the statistic $W$ is free under the null.
+4. Prove that $W \in [0,1]$.
+5. Show that the $W$ statistic is the squared empirical Pearson correlation coefficient between
+the ordered sample values $y_{(i)}$ and the coefficients $a_i$.
+
+In \textsf{R}, the Shapiro-Wilk test can be performed with the `shapiro.test()` function.
+
+
+
+# Solution
+
+## Question 1
+Let us denote  $\mathbf x =(x_{(1)}, ..., x_{(n)})^{\top}$. Define the $n \times n$–permutation matrix
+\[J =\begin{bmatrix} 0 & ... & 0 & 1\\
+                     0 & ... & 1 & 0\\
+                     0 & \vdots & \vdots & \vdots \\
+                     1 & ... & 0 & 0 \end{bmatrix},\]
+whose entries are 0 except on the diagonal from bottom left to top right where the entry is 1. Used as a multiplier from the left hand side to a vector
+of convenient dimension, $J$ has the effect to reverse the order of the vector entries:
+\begin{equation}\label{eq:q1}-J \mathbf x = -J
+\begin{bmatrix} x_{(1)} \\ \vdots \\ x_{(n)} \end{bmatrix} = \begin{bmatrix}- x_{(n)} \\ \vdots \\ -x_{(1)} \end{bmatrix}.\end{equation}
+From the equivalence
+\[x_{(1)} \leq ... \leq x_{(n)} \Leftrightarrow  -x_{(n)} \leq ... \leq  -x_{(1)},\]
+follows, since the $x_i$'s are symmetrically distributed, that the joint distribution of the $(x_{(1)}, ... , x_{(n)})$ is the same than the joint distribution of $(-x_{(n)},..., -x_{(1)})$. Consequently, using equation~\eqref{eq:q1}, it follows
+that the random vectors $\mathbf x$ and $-J\mathbf x$ have the same distribution. That means in particular
+\[\mathbf m =\mathbb E(\mathbf x) = \mathbb E(-J \mathbf x) = -J \mathbf m,\]
+which proves that \[a_{i} = - a_{n-i+1},  \quad \forall i \in [n].\]
+Noticing that with an odd sample size, i.e., $n = 2r + 1, r \in \mathbb N$, the
+”middle” coefficient $a_{r+1}$ is necessary zero, the last part of the question is straightforward.
+
+## Question 2
+For any $i \in [n]$, let $z_i= \alpha y_{(i)} + \beta$ with $\alpha,\beta\in \mathbb R$ ($\alpha \neq 0$). Then by linearity it holds $\bar z = \alpha \bar y +\beta.$ Hence, using the quality $\sum_{i=1}^n a_i=0$ from the previous question we get
+\begin{align*}
+& \dfrac{\left( \sum_{i=1}^n a_i z_{i} \right)^2}{\sum_{i=1}^n (z_i - \bar{z})^2}= \dfrac{\left( \sum_{i=1}^n a_i \alpha y_{(i)} + \beta\sum_{i=1}^n a_i \right)^2}{\sum_{i=1}^n \alpha^2(y_{(i)} - \bar{y})^2}=W.
+\end{align*}
+We deduce that $W$ is invariant under translation or scaling. 
+
+## Question 3
+Under the null (i.e. if $y_i \sim \mathcal N(\mu,\sigma^2)$), the scale and translation invariance implies that the
+distribution of the $W$ statistic depends only on the sample size $n$ and does not depend on the
+unknown location and scale parameters $\mu$ and $\sigma$.
+
+## Question 4
+First, note that for all $n \in \mathbb N$,
+\[W =\frac{(\mathbf a^{\top} \mathbf y)^2}{(n-1)S^2_n}\geq  0.\]
+
+Using the translation invariance of the $W$ statistic as shown in question 2, we can assume,
+without loss of generality, $\bar y= 0$. (Otherwise pass to $\widetilde y_{(i)}:= y_{(i)} - \bar y$.) Hence, the $W$ statistic can
+be reduced to
+\[W =\frac{(\mathbf a^{\top} \mathbf y)^2}{\sum_{i=1}^n y_i^2}.\]
+Since, by definition,
+\[\sum_{i=1}^n a_i^2 = \mathbf a^{\top}\mathbf a = \frac{\mathbf m^{\top} V^{-1}V^{-1}\mathbf m}{\mathbf m^{\top} V^{-1}V^{-1}\mathbf m}=1,\]
+we get from Cauchy-Schwarz inequality
+\[(\mathbf a^{\top} \mathbf y)^2\leq \sum_{i=1}^n a_i^2 \sum_{i=1}^n y_i^2 =\sum_{i=1}^n y_i^2 .  \]
+Thus the upper bound of $W$ is $1$, while $W = 1$ if and only if $y_{(i)} = \lambda a_i$, $i = 1, ... , n$ for arbitrary $\lambda \in \mathbb R$.
+
+We said in the introduction of the exercise that we reject the null when the statistic $W$ takes a small value (compared to 1). Hence, the conclusion of this question leads us to think that **$W$ measures the normality of the samples $y_{1},...,y_n$ through the "amount of colinearity" between vectors $\mathbf y$ and $\mathbf a$**.
+The last question makes this statement rigorous by showing that $W$ corresponds to the squared empirical Pearson correlation coefficient between $\mathbf y$ and $\mathbf a$.
+
+## Question 5
+The correlation coefficient is given by
+\[r_{\mathbf y,\mathbf a} =\frac{
+\sum_{i=1}^n (y_{(i)} -\bar y)(a_i -\bar a)}{\left[\sum_{i=1}^n (y_{i} -\bar y)^2 \sum_{i=1}^n (a_i -\bar a)^2\right]^{1/2}},\]
+where $\bar  a= n^{-1} \sum_{i=1}^n a_i=0$ from question 1. Remembering that, by definition, $\sum_{i=1}^n a_i^2=1$ yields to
+\begin{align*}
+W &= \frac{\left(\sum_{i=1}^n a_iy_{(i)}\right)^2}{\sum_{i=1}^n (y_{i}-\bar y)^2}\\
+&= \frac{\left(\sum_{i=1}^n a_iy_{(i)} -\bar y \sum_{i=1}^n a_i\right)^2}{\sum_{i=1}^n (y_{i}-\bar y)^2\sum_{i=1}^n a_i^2}\\
+&= \frac{\left(\sum_{i=1}^n a_i(y_{(i)} -\bar y) \right)^2}{\sum_{i=1}^n (y_{i}-\bar y)^2\sum_{i=1}^n a_i^2}\\
+&= \frac{\left(\sum_{i=1}^n (a_i-\bar a)(y_{(i)} -\bar y) \right)^2}{\sum_{i=1}^n (y_{i}-\bar y)^2\sum_{i=1}^n (a_i-\bar a)^2}\\
+&=r_{\mathbf y,\mathbf a} ^2.
+\end{align*}
+
